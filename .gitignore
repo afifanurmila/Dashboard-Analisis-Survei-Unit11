@@ -1,0 +1,9 @@
+# Temporary & Cache files
+.system_generated/
+__pycache__/
+*.pyc
+
+# Local config & logs
+*.log
+.DS_Store
+Thumbs.db

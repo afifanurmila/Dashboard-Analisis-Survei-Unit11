@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Monitoring & Analisis Survei LAN RI 2026</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            lan: {
+              50: '#f0f5fc',
+              100: '#e1ecf8',
+              200: '#c3dbf2',
+              300: '#94c2e9',
+              500: '#2b6cb0',
+              600: '#1d4ed8',
+              700: '#1e40af',
+              800: '#1e3a8a',
+              900: '#0f172a',
+              gold: '#d97706',
+              accent: '#0284c7'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Initial Survey Data -->
+  <script src="data/initialData.js"></script>
+
+  <style>
+    [v-cloak] { display: none; }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+  <div id="app" v-cloak class="flex-1 flex flex-col">
+
+    <!-- TOP NOTIFICATION BANNER / ALERT IF OFFLINE OR DEMO -->
+    <header class="bg-lan-900 text-white border-b border-lan-800 shadow-sm sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          
+          <!-- Logo & Title -->
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center shadow-md text-lan-900 font-black text-xl">
+              LAN
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-base sm:text-lg tracking-tight text-white">Monitoring Survei LAN RI</span>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">TA 2026</span>
+              </div>
+              <p class="text-xs text-slate-300 hidden sm:block">Pusat Rekapitulasi & Diseminasi Publikasi Survei Strategis</p>
+            </div>
+          </div>
+
+          <!-- Top Right Controls -->
+          <div class="flex items-center space-x-2 sm:space-x-3">
+            <!-- Sync Status Indicator -->
+            <div class="flex items-center text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-colors"
+                 :class="isSyncing ? 'bg-amber-900/40 text-amber-200 border-amber-700/50' : 
+                         isSheetConnected ? 'bg-emerald-900/40 text-emerald-200 border-emerald-700/50 hover:bg-emerald-800/50' : 
+                         'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'"
+                 @click="openSettingsModal"
+                 title="Klik untuk konfigurasi Google Apps Script">
+              <span class="w-2 h-2 rounded-full mr-1.5"
+                    :class="isSyncing ? 'bg-amber-400 animate-ping' : isSheetConnected ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+              <span class="font-medium hidden md:inline">
+                {{ isSyncing ? 'Sinkronisasi...' : isSheetConnected ? 'Terhubung Google Sheet' : 'Mode Data Lokal' }}
+              </span>
+              <i data-lucide="settings" class="w-3.5 h-3.5 ml-1.5 opacity-70"></i>
+            </div>
+
+            <!-- Refresh Button -->
+            <button @click="fetchDataFromSheet" :disabled="isSyncing"
+                    class="p-2 text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg transition-all"
+                    title="Segarkan data">
+              <i data-lucide="refresh-cw" class="w-4 h-4" :class="{ 'animate-spin': isSyncing }"></i>
+            </button>
+
+            <!-- New Survey Button -->
+            <button @click="openAddModal"
+                    class="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-lan-600 hover:from-blue-500 hover:to-lan-500 text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm transition-all shadow-blue-900/30">
+              <i data-lucide="plus-circle" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">Tambah Agenda</span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- FOCUS UNIT & NAVIGATION SUB-BAR -->
+        <div class="py-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+          
+          <!-- Unit Filter (Fokus Unit Saya) -->
+          <div class="flex items-center space-x-2">
+            <span class="text-amber-300 font-semibold flex items-center">
+              <i data-lucide="building-2" class="w-4 h-4 mr-1"></i>
+              Fokus Unit:
+            </span>
+            <select v-model="selectedUnit" 
+                    class="bg-slate-800 text-white font-medium border border-slate-700 rounded-md px-2.5 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="SEMUA">🌐 Semua Unit Kerja ({{ allSurveys.length }})</option>
+              <option v-for="unit in unitOptions" :key="unit" :value="unit">
+                {{ unit }} ({{ getUnitCount(unit) }})
+              </option>
+            </select>
+          </div>
+
+          <!-- Tab Navigation -->
+          <nav class="flex items-center space-x-1 sm:space-x-2">
+            <button @click="currentTab = 'analytics'"
+                    class="px-3 py-1 rounded-md font-medium transition-colors flex items-center space-x-1.5"
+                    :class="currentTab === 'analytics' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800 hover:text-white'">
+              <i data-lucide="pie-chart" class="w-3.5 h-3.5"></i>
+              <span>Ringkasan & Analisis</span>
+            </button>
+            <button @click="currentTab = 'timeline'"
+                    class="px-3 py-1 rounded-md font-medium transition-colors flex items-center space-x-1.5"
+                    :class="currentTab === 'timeline' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800 hover:text-white'">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+              <span>Jadwal Rilis 2026</span>
+            </button>
+            <button @click="currentTab = 'table'"
+                    class="px-3 py-1 rounded-md font-medium transition-colors flex items-center space-x-1.5"
+                    :class="currentTab === 'table' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800 hover:text-white'">
+              <i data-lucide="list-checks" class="w-3.5 h-3.5"></i>
+              <span>Data & Update Progress</span>
+            </button>
+          </nav>
+
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN BODY CONTENT -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+      <!-- UNIT BANNER ALERT (IF FILTERED BY UNIT) -->
+      <div v-if="selectedUnit !== 'SEMUA'" 
+           class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold">
+            <i data-lucide="focus" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-sm font-bold text-blue-900">
+              Menampilkan Agenda Khusus Unit: <span class="text-blue-700 underline font-black">{{ selectedUnit }}</span>
+            </h2>
+            <p class="text-xs text-blue-700">
+              Total {{ filteredSurveys.length }} agenda survei. PIC dapat langsung memantau dan mengisi progres publikasi di bawah.
+            </p>
+          </div>
+        </div>
+        <button @click="selectedUnit = 'SEMUA'" 
+                class="text-xs font-semibold px-3 py-1.5 bg-white border border-blue-300 text-blue-700 hover:bg-blue-100 rounded-md transition-all">
+          Tampilkan Semua Unit
+        </button>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB 1: ANALYTICS & EXECUTIVE OVERVIEW -->
+      <!-- ============================================================ -->
+      <div v-show="currentTab === 'analytics'" class="space-y-6">
+
+        <!-- STAT METRIC CARDS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Total Survei -->
+          <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Agenda Survei</p>
+              <h3 class="text-2xl font-black text-slate-800 mt-1">{{ stats.total }}</h3>
+              <p class="text-xs text-slate-500 mt-1">
+                Tahun 2026: <strong class="text-slate-700">{{ stats.year2026 }}</strong> | 2025: <strong class="text-slate-700">{{ stats.year2025 }}</strong>
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i data-lucide="book-open-check" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <!-- Selesai Publikasi -->
+          <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Selesai Publikasi</p>
+              <h3 class="text-2xl font-black text-emerald-700 mt-1">{{ stats.completed }}</h3>
+              <div class="flex items-center space-x-1 mt-1">
+                <span class="text-xs font-bold text-emerald-800">{{ stats.completedPercent }}%</span>
+                <span class="text-xs text-slate-400">dari target agenda</span>
+              </div>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <!-- Dalam Proses / Sedang Berjalan -->
+          <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Sedang Berjalan</p>
+              <h3 class="text-2xl font-black text-amber-600 mt-1">{{ stats.inProgress }}</h3>
+              <p class="text-xs text-slate-500 mt-1">
+                Instrumen, Pengumpulan & PB
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <i data-lucide="clock" class="w-6 h-6"></i>
+            </div>
+          </div>
+
+          <!-- Belum Dimulai -->
+          <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Belum Dimulai</p>
+              <h3 class="text-2xl font-black text-slate-700 mt-1">{{ stats.notStarted }}</h3>
+              <p class="text-xs text-slate-500 mt-1">
+                Agenda terjadwal akhir tahun
+              </p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+              <i data-lucide="hourglass" class="w-6 h-6"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- CHARTS ROW 1: Klaster & Diseminasi Media -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Chart Klaster -->
+          <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h4 class="text-sm font-bold text-slate-800">Distribusi Klaster Agenda</h4>
+                <p class="text-xs text-slate-500">Klasifikasi tema survei LAN RI</p>
+              </div>
+              <span class="p-1.5 rounded-md bg-slate-100 text-slate-600">
+                <i data-lucide="pie-chart" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="relative flex-1 min-h-[260px] flex items-center justify-center">
+              <canvas id="clusterChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart Cakupan Media Publikasi -->
+          <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h4 class="text-sm font-bold text-slate-800">Cakupan Saluran Diseminasi</h4>
+                <p class="text-xs text-slate-500">Banyaknya survei yang telah memiliki link publikasi</p>
+              </div>
+              <span class="p-1.5 rounded-md bg-slate-100 text-slate-600">
+                <i data-lucide="share-2" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="relative flex-1 min-h-[260px] flex items-center justify-center">
+              <canvas id="mediaChart"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- CHARTS ROW 2: Progres Per Unit Kerja -->
+        <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h4 class="text-sm font-bold text-slate-800">Status Progres per Unit Kerja</h4>
+              <p class="text-xs text-slate-500">Perbandingan jumlah survei selesai vs berjalan pada tiap unit</p>
+            </div>
+            <span class="p-1.5 rounded-md bg-slate-100 text-slate-600">
+              <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div class="relative min-h-[280px]">
+            <canvas id="unitChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB 2: SCHEDULE ROADMAP / TIMELINE 2026 -->
+      <!-- ============================================================ -->
+      <div v-show="currentTab === 'timeline'" class="space-y-6">
+        
+        <!-- Controls & Legend -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800">Roadmap Publikasi Survei 2026</h3>
+            <p class="text-xs text-slate-500">Jadwal target rilis per bulan dan minggu (1-4)</p>
+          </div>
+          
+          <!-- Status Legend -->
+          <div class="flex flex-wrap items-center gap-3 text-xs">
+            <span class="inline-flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5"></span> Selesai Publikasi
+            </span>
+            <span class="inline-flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 mr-1.5"></span> Dalam Proses
+            </span>
+            <span class="inline-flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-300 mr-1.5"></span> Belum Dimulai
+            </span>
+          </div>
+        </div>
+
+        <!-- Monthly Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div v-for="month in months2026" :key="month" 
+               class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <!-- Month Header -->
+            <div class="px-4 py-3 bg-gradient-to-r from-slate-800 to-lan-900 text-white flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="calendar-days" class="w-4 h-4 text-amber-400"></i>
+                <span class="font-bold text-sm tracking-wide">{{ month }} 2026</span>
+              </div>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-200 font-medium">
+                {{ getSurveysByMonth(month).length }} agenda
+              </span>
+            </div>
+
+            <!-- Surveys in this month -->
+            <div class="p-3 divide-y divide-slate-100 flex-1 overflow-y-auto max-h-[360px] space-y-3">
+              <div v-if="getSurveysByMonth(month).length === 0" class="py-8 text-center text-xs text-slate-400 italic">
+                Tidak ada agenda di bulan ini
+              </div>
+              
+              <div v-for="item in getSurveysByMonth(month)" :key="item.no" 
+                   class="pt-3 first:pt-0 group hover:bg-slate-50 p-2 rounded-lg transition-colors cursor-pointer"
+                   @click="openEditModal(item)">
+                <div class="flex items-start justify-between gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        :class="getUnitBadgeClass(item.unit)">
+                    {{ item.unit }}
+                  </span>
+                  <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                        :class="getStatusBadgeClass(item.status)">
+                    {{ item.status }}
+                  </span>
+                </div>
+                
+                <h5 class="text-xs font-semibold text-slate-800 group-hover:text-blue-600 mt-1.5 line-clamp-2">
+                  {{ item.judul }}
+                </h5>
+                
+                <div class="flex items-center justify-between text-[11px] text-slate-500 mt-2">
+                  <span class="inline-flex items-center font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px]">
+                    <i data-lucide="clock-3" class="w-3 h-3 mr-1"></i>
+                    {{ item.jadwal }}
+                  </span>
+                  <span class="text-blue-600 font-medium group-hover:underline text-[10px] flex items-center">
+                    Update <i data-lucide="chevron-right" class="w-3 h-3 ml-0.5"></i>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB 3: DATA GRID & QUICK UPDATE PROGRESS (OPERATIONAL) -->
+      <!-- ============================================================ -->
+      <div v-show="currentTab === 'table'" class="space-y-4">
+
+        <!-- FILTER BAR -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            
+            <!-- Search Input -->
+            <div class="relative">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+              <input type="text" v-model="searchQuery" 
+                     placeholder="Cari judul survei / catatan..."
+                     class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+
+            <!-- Filter Klaster -->
+            <div>
+              <select v-model="filterCluster" 
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="">Semua Klaster Tema</option>
+                <option v-for="c in clusterOptions" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+
+            <!-- Filter Status -->
+            <div>
+              <select v-model="filterStatus" 
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="">Semua Status Progres</option>
+                <option value="Selesai Publikasi">✅ Selesai Publikasi</option>
+                <option value="Review Policy Brief">📄 Review Policy Brief</option>
+                <option value="Pengumpulan Data">📊 Pengumpulan Data</option>
+                <option value="Penyusunan Instrumen">📝 Penyusunan Instrumen</option>
+                <option value="Dalam Proses">⏳ Dalam Proses</option>
+                <option value="Belum Dimulai">⚪ Belum Dimulai</option>
+              </select>
+            </div>
+
+            <!-- Filter Tahun -->
+            <div>
+              <select v-model="filterYear" 
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="">Semua Tahun</option>
+                <option value="2026">Tahun 2026 (Utama)</option>
+                <option value="2025">Tahun 2025</option>
+              </select>
+            </div>
+
+          </div>
+
+          <!-- View Switcher & Result Count -->
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+            <span class="text-slate-500">
+              Ditemukan <strong class="text-slate-800">{{ tableFilteredSurveys.length }}</strong> agenda survei
+            </span>
+            <div class="flex items-center space-x-1">
+              <button @click="viewMode = 'card'" 
+                      class="p-1.5 rounded border transition-colors"
+                      :class="viewMode === 'card' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'"
+                      title="Tampilan Kartu">
+                <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+              </button>
+              <button @click="viewMode = 'table'" 
+                      class="p-1.5 rounded border transition-colors"
+                      :class="viewMode === 'table' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'"
+                      title="Tampilan Tabel">
+                <i data-lucide="table" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= CARD VIEW ================= -->
+        <div v-if="viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div v-for="item in tableFilteredSurveys" :key="item.no"
+               class="bg-white rounded-xl border border-slate-200 hover:border-blue-400 shadow-sm p-4 flex flex-col justify-between transition-all">
+            
+            <div>
+              <!-- Top Row: Unit, No & Status -->
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center space-x-2">
+                  <span class="text-xs font-bold text-slate-400">#{{ item.no }}</span>
+                  <span class="text-xs font-bold px-2 py-0.5 rounded" :class="getUnitBadgeClass(item.unit)">
+                    {{ item.unit }}
+                  </span>
+                  <span v-if="item.jenis" class="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                    {{ item.jenis }}
+                  </span>
+                </div>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap"
+                      :class="getStatusBadgeClass(item.status)">
+                  {{ item.status }}
+                </span>
+              </div>
+
+              <!-- Judul Survei -->
+              <h4 class="text-sm font-bold text-slate-800 mt-2.5 leading-snug">
+                {{ item.judul }}
+              </h4>
+
+              <!-- Klaster & Jadwal Tag -->
+              <div class="flex flex-wrap items-center gap-2 mt-2 text-xs text-slate-500">
+                <span class="inline-flex items-center text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                  <i data-lucide="tag" class="w-3 h-3 mr-1 text-slate-400"></i>
+                  {{ item.cluster1 || 'Klaster Umum' }}
+                </span>
+                <span class="inline-flex items-center text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  <i data-lucide="calendar" class="w-3 h-3 mr-1 text-amber-500"></i>
+                  Target: {{ item.jadwal }}
+                </span>
+              </div>
+
+              <!-- Media Channels Interactive Icons -->
+              <div class="mt-3.5 pt-3 border-t border-slate-100">
+                <div class="text-[11px] font-semibold text-slate-500 mb-1.5">Saluran Publikasi:</div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <!-- Web LAN -->
+                  <a v-if="hasLink(item.web_lan)" :href="getCleanLink(item.web_lan)" target="_blank"
+                     class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 text-[10px] font-medium flex items-center border border-blue-200" title="Website LAN">
+                    🌐 Web LAN
+                  </a>
+                  <span v-else class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] line-through opacity-50">Web LAN</span>
+
+                  <!-- Web Unit -->
+                  <a v-if="hasLink(item.web_unit)" :href="getCleanLink(item.web_unit)" target="_blank"
+                     class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-[10px] font-medium flex items-center border border-indigo-200" title="Website Unit">
+                    🏢 Web Unit
+                  </a>
+                  <span v-else class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] line-through opacity-50">Web Unit</span>
+
+                  <!-- IG LAN -->
+                  <a v-if="hasLink(item.ig_lan)" :href="getCleanLink(item.ig_lan)" target="_blank"
+                     class="px-2 py-0.5 rounded bg-pink-50 text-pink-700 hover:bg-pink-100 text-[10px] font-medium flex items-center border border-pink-200" title="Instagram LAN">
+                    📸 IG LAN
+                  </a>
+                  <span v-else class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] line-through opacity-50">IG LAN</span>
+
+                  <!-- IG Unit -->
+                  <a v-if="hasLink(item.ig_unit)" :href="getCleanLink(item.ig_unit)" target="_blank"
+                     class="px-2 py-0.5 rounded bg-purple-50 text-purple-700 hover:bg-purple-100 text-[10px] font-medium flex items-center border border-purple-200" title="Instagram Unit">
+                    📱 IG Unit
+                  </a>
+                  <span v-else class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] line-through opacity-50">IG Unit</span>
+
+                  <!-- YT LAN -->
+                  <a v-if="hasLink(item.yt_lan)" :href="getCleanLink(item.yt_lan)" target="_blank"
+                     class="px-2 py-0.5 rounded bg-red-50 text-red-700 hover:bg-red-100 text-[10px] font-medium flex items-center border border-red-200" title="YouTube LAN">
+                    🎥 YT LAN
+                  </a>
+                  <span v-else class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] line-through opacity-50">YT LAN</span>
+
+                  <!-- YT Unit -->
+                  <a v-if="hasLink(item.yt_unit)" :href="getCleanLink(item.yt_unit)" target="_blank"
+                     class="px-2 py-0.5 rounded bg-rose-50 text-rose-700 hover:bg-rose-100 text-[10px] font-medium flex items-center border border-rose-200" title="YouTube Unit">
+                    🎬 YT Unit
+                  </a>
+                  <span v-else class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] line-through opacity-50">YT Unit</span>
+
+                  <!-- Media Online -->
+                  <a v-if="hasLink(item.media_online)" :href="getCleanLink(item.media_online)" target="_blank"
+                     class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[10px] font-medium flex items-center border border-emerald-200" title="Media Online">
+                    📰 Media
+                  </a>
+
+                  <!-- Jurnal -->
+                  <a v-if="hasLink(item.jurnal)" :href="getCleanLink(item.jurnal)" target="_blank"
+                     class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 text-[10px] font-medium flex items-center border border-amber-200" title="Jurnal">
+                    📚 Jurnal
+                  </a>
+                </div>
+              </div>
+
+              <!-- Keterangan Catatan -->
+              <div v-if="item.keterangan" class="mt-3 p-2 rounded bg-slate-50 border border-slate-200 text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Catatan:</span> {{ item.keterangan }}
+              </div>
+            </div>
+
+            <!-- Footer Action Button -->
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end">
+              <button @click="openEditModal(item)"
+                      class="px-3 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                <span>Update Progress & Link</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ================= TABLE VIEW ================= -->
+        <div v-else class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200 text-xs">
+            <thead class="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+              <tr>
+                <th class="py-3 px-3 text-left w-12">No</th>
+                <th class="py-3 px-3 text-left w-24">Unit</th>
+                <th class="py-3 px-4 text-left">Judul Survei</th>
+                <th class="py-3 px-3 text-left w-28">Jadwal</th>
+                <th class="py-3 px-3 text-left w-36">Status</th>
+                <th class="py-3 px-3 text-left">Publikasi Link</th>
+                <th class="py-3 px-3 text-center w-24">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-for="item in tableFilteredSurveys" :key="item.no" class="hover:bg-slate-50/80 transition-colors">
+                <td class="py-3 px-3 font-bold text-slate-500">#{{ item.no }}</td>
+                <td class="py-3 px-3">
+                  <span class="font-bold px-2 py-0.5 rounded text-[10px]" :class="getUnitBadgeClass(item.unit)">
+                    {{ item.unit }}
+                  </span>
+                </td>
+                <td class="py-3 px-4">
+                  <div class="font-bold text-slate-800 text-xs leading-snug">{{ item.judul }}</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">{{ item.cluster1 }} <span v-if="item.jenis">• {{ item.jenis }}</span></div>
+                  <div v-if="item.keterangan" class="text-[10px] text-slate-500 italic mt-1 bg-slate-50 px-1.5 py-0.5 rounded max-w-md">
+                    {{ item.keterangan }}
+                  </div>
+                </td>
+                <td class="py-3 px-3">
+                  <span class="text-amber-800 bg-amber-50 px-2 py-0.5 rounded font-medium text-[11px]">
+                    {{ item.jadwal }}
+                  </span>
+                </td>
+                <td class="py-3 px-3">
+                  <span class="font-semibold px-2 py-0.5 rounded-full border text-[11px] whitespace-nowrap"
+                        :class="getStatusBadgeClass(item.status)">
+                    {{ item.status }}
+                  </span>
+                </td>
+                <td class="py-3 px-3">
+                  <div class="flex items-center space-x-1">
+                    <span :class="hasLink(item.web_lan) ? 'text-blue-600 font-bold' : 'text-slate-300'" title="Web LAN">🌐</span>
+                    <span :class="hasLink(item.web_unit) ? 'text-indigo-600 font-bold' : 'text-slate-300'" title="Web Unit">🏢</span>
+                    <span :class="hasLink(item.ig_lan) ? 'text-pink-600 font-bold' : 'text-slate-300'" title="IG LAN">📸</span>
+                    <span :class="hasLink(item.yt_lan) ? 'text-red-600 font-bold' : 'text-slate-300'" title="YT LAN">🎥</span>
+                    <span :class="hasLink(item.media_online) ? 'text-emerald-600 font-bold' : 'text-slate-300'" title="Media Online">📰</span>
+                  </div>
+                </td>
+                <td class="py-3 px-3 text-center">
+                  <button @click="openEditModal(item)"
+                          class="p-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white rounded-lg transition-colors border border-blue-200"
+                          title="Edit Progres">
+                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- ============================================================ -->
+    <!-- DRAWER / MODAL: UPDATE PROGRESS & LINKS                      -->
+    <!-- ============================================================ -->
+    <div v-if="isEditModalOpen" 
+         class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+        
+        <!-- Modal Header -->
+        <div class="px-6 py-4 bg-gradient-to-r from-slate-900 to-lan-900 text-white flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center font-bold text-xs">
+              #{{ activeEditItem.no }}
+            </span>
+            <div>
+              <h3 class="text-sm font-bold leading-tight">Update Progres & Publikasi</h3>
+              <p class="text-xs text-slate-300">Unit: <strong class="text-amber-300">{{ activeEditItem.unit }}</strong></p>
+            </div>
+          </div>
+          <button @click="closeEditModal" class="text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Modal Body (Scrollable) -->
+        <div class="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+          
+          <!-- Judul Survei (Read-only / editable) -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Judul Agenda Survei</label>
+            <input type="text" v-model="activeEditItem.judul"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+
+          <!-- Section: Status & Tahapan -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Status Progres Saat Ini</label>
+              <select v-model="activeEditItem.status"
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <option value="Selesai Publikasi">✅ Selesai Publikasi</option>
+                <option value="Review Policy Brief">📄 Review Policy Brief / Pimpinan</option>
+                <option value="Penyusunan PB/Laporan">📝 Penyusunan PB / Dokumen</option>
+                <option value="Pengolahan Data">⚙️ Pengolahan Data</option>
+                <option value="Pengumpulan Data">📊 Pengumpulan Data / Lapangan</option>
+                <option value="Penyusunan Instrumen">📋 Penyusunan Instrumen</option>
+                <option value="Tahap Persiapan">⏳ Tahap Persiapan</option>
+                <option value="Belum Dimulai">⚪ Belum Dimulai</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Target Jadwal Publikasi</label>
+              <input type="text" v-model="activeEditItem.jadwal" placeholder="Contoh: Mei (2) atau Oktober (1)"
+                     class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Section: Keterangan / Catatan Detail -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">
+              Catatan Progres / Keterangan Kendala
+            </label>
+            <textarea v-model="activeEditItem.keterangan" rows="3"
+                      placeholder="Contoh: Sudah selesai ekspose hasil survei, saat ini sedang penyusunan policy brief untuk dipaparkan ke pimpinan..."
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+            <p class="text-[10px] text-slate-400 mt-0.5">Teks ini akan otomatis tersinkronkan ke kolom Keterangan di Google Spreadsheet.</p>
+          </div>
+
+          <!-- Section: Link Kanal Publikasi -->
+          <div class="pt-2 border-t border-slate-100">
+            <h4 class="font-bold text-slate-800 text-xs mb-2 flex items-center">
+              <i data-lucide="link" class="w-3.5 h-3.5 mr-1.5 text-blue-600"></i>
+              Tautan / Link Diseminasi Publikasi
+            </h4>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Website LAN</label>
+                <input type="text" v-model="activeEditItem.web_lan" placeholder="https://lan.go.id/..."
+                       class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Website Unit / Poltek</label>
+                <input type="text" v-model="activeEditItem.web_unit" placeholder="https://..."
+                       class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Instagram LAN</label>
+                <input type="text" v-model="activeEditItem.ig_lan" placeholder="https://instagram.com/..."
+                       class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Instagram Unit</label>
+                <input type="text" v-model="activeEditItem.ig_unit" placeholder="https://instagram.com/..."
+                       class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">YouTube LAN</label>
+                <input type="text" v-model="activeEditItem.yt_lan" placeholder="https://youtube.com/..."
+                       class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">YouTube Unit</label>
+                <input type="text" v-model="activeEditItem.yt_unit" placeholder="https://youtube.com/..."
+                       class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Media Berita Online</label>
+                <input type="text" v-model="activeEditItem.media_online" placeholder="Link berita online..."
+                       class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Jurnal / Prosiding</label>
+                <input type="text" v-model="activeEditItem.jurnal" placeholder="Link jurnal penelitian..."
+                       class="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+          <button @click="closeEditModal" 
+                  class="px-4 py-2 border border-slate-300 text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-semibold transition-colors">
+            Batal
+          </button>
+          
+          <button @click="saveSurveyUpdate" :disabled="isSaving"
+                  class="px-5 py-2 bg-gradient-to-r from-blue-600 to-lan-600 hover:from-blue-500 hover:to-lan-500 text-white rounded-lg text-xs font-bold transition-all shadow-md flex items-center space-x-2">
+            <i data-lucide="loader-2" class="w-4 h-4 animate-spin" v-if="isSaving"></i>
+            <i data-lucide="save" class="w-4 h-4" v-else></i>
+            <span>{{ isSaving ? 'Menyimpan...' : 'Simpan & Sinkronkan' }}</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: TAMBAH AGENDA SURVEI BARU                             -->
+    <!-- ============================================================ -->
+    <div v-if="isAddModalOpen" 
+         class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+        <div class="px-6 py-4 bg-lan-900 text-white flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="plus-circle" class="w-5 h-5 text-amber-400"></i>
+            <h3 class="text-sm font-bold">Tambah Agenda Survei Baru</h3>
+          </div>
+          <button @click="isAddModalOpen = false" class="text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-4 text-xs overflow-y-auto max-h-[75vh]">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Unit Pelaksana *</label>
+            <select v-model="newItem.unit" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs">
+              <option v-for="u in unitOptions" :key="u" :value="u">{{ u }}</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Judul Agenda Survei *</label>
+            <input type="text" v-model="newItem.judul" placeholder="Masukkan judul survei..."
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Klaster Tema</label>
+              <select v-model="newItem.cluster1" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs">
+                <option v-for="c in clusterOptions" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Target Jadwal (Bulan & Minggu)</label>
+              <input type="text" v-model="newItem.jadwal" placeholder="Contoh: Juli (2)"
+                     class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Jenis Luaran</label>
+              <input type="text" v-model="newItem.jenis" placeholder="Policy Brief, Laporan, dll"
+                     class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Tahun Anggaran</label>
+              <input type="text" v-model="newItem.tahun" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs">
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Keterangan Awal</label>
+            <textarea v-model="newItem.keterangan" rows="2" placeholder="Catatan awal progres..."
+                      class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"></textarea>
+          </div>
+        </div>
+
+        <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+          <button @click="isAddModalOpen = false" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-xs font-semibold">
+            Batal
+          </button>
+          <button @click="saveNewSurvey" :disabled="isSaving"
+                  class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Tambahkan Agenda</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: SETTINGS & APPS SCRIPT SYNC CONFIG                    -->
+    <!-- ============================================================ -->
+    <div v-if="isSettingsModalOpen" 
+         class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+        <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="settings" class="w-5 h-5 text-amber-400"></i>
+            <h3 class="text-sm font-bold">Pengaturan Koneksi Google Sheets</h3>
+          </div>
+          <button @click="isSettingsModalOpen = false" class="text-slate-400 hover:text-white">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-4 text-xs">
+          <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800">
+            <p class="font-bold mb-1">Sinkronisasi Otomatis 2 Arah</p>
+            <p class="text-[11px] leading-relaxed">
+              Hubungkan dashboard ini dengan Google Apps Script Web App agar data selalu sinkron dengan spreadsheet LAN RI.
+            </p>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">URL Google Apps Script Web App</label>
+            <input type="text" v-model="scriptUrlInput" 
+                   placeholder="https://script.google.com/macros/s/.../exec"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono">
+            <p class="text-[10px] text-slate-400 mt-1">
+              Panduan lengkap deploy skrip tersedia di folder <code>google_apps_script/PANDUAN_SETUP_APPS_SCRIPT.md</code>.
+            </p>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+            <button @click="testScriptConnection" :disabled="isTestingConnection"
+                    class="px-3 py-1.5 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg font-semibold flex items-center space-x-1.5">
+              <i data-lucide="activity" class="w-3.5 h-3.5 text-blue-600"></i>
+              <span>{{ isTestingConnection ? 'Menguji...' : 'Uji Koneksi' }}</span>
+            </button>
+            <span v-if="connectionTestResult" class="font-semibold" 
+                  :class="connectionTestResult.success ? 'text-emerald-600' : 'text-rose-600'">
+              {{ connectionTestResult.message }}
+            </span>
+          </div>
+        </div>
+
+        <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+          <button @click="resetToInitialData" 
+                  class="px-3 py-1.5 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold flex items-center space-x-1"
+                  title="Kembalikan status data ke master bawaan">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Reset Cache</span>
+          </button>
+          
+          <div class="flex items-center space-x-2">
+            <button @click="isSettingsModalOpen = false" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg text-xs font-semibold">
+              Tutup
+            </button>
+            <button @click="saveScriptUrl" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold">
+              Simpan Pengaturan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div v-if="toast.show" 
+         class="fixed bottom-5 right-5 z-50 flex items-center space-x-2 px-4 py-3 rounded-xl shadow-xl text-white text-xs font-bold transition-all animate-bounce"
+         :class="toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'">
+      <i data-lucide="check-circle" class="w-4 h-4" v-if="toast.type === 'success'"></i>
+      <i data-lucide="alert-circle" class="w-4 h-4" v-else></i>
+      <span>{{ toast.message }}</span>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
+        Dashboard Rekapitulasi & Analisis Publikasi Survei — Lembaga Administrasi Negara Republik Indonesia (LAN RI)
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- APPLICATION LOGIC SCRIPT -->
+  <script>
+    const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+
+    createApp({
+      setup() {
+        // State
+        const allSurveys = ref([]);
+        const currentTab = ref('analytics');
+        const selectedUnit = ref('SEMUA');
+        const searchQuery = ref('');
+        const filterCluster = ref('');
+        const filterStatus = ref('');
+        const filterYear = ref('2026');
+        const viewMode = ref('card');
+
+        // Modal States
+        const isEditModalOpen = ref(false);
+        const isAddModalOpen = ref(false);
+        const isSettingsModalOpen = ref(false);
+        const isSyncing = ref(false);
+        const isSaving = ref(false);
+        const isTestingConnection = ref(false);
+
+        // Edit & Add Item Models
+        const activeEditItem = ref({});
+        const newItem = ref({
+          unit: 'SKPP',
+          judul: '',
+          cluster1: 'Prioritas Presiden',
+          jadwal: '',
+          tahun: '2026',
+          jenis: '',
+          keterangan: '',
+          status: 'Belum Dimulai'
+        });
+
+        // Google Apps Script Connection
+        const scriptUrl = ref(localStorage.getItem('LAN_APPS_SCRIPT_URL') || '');
+        const scriptUrlInput = ref(scriptUrl.value);
+        const connectionTestResult = ref(null);
+
+        // Toast
+        const toast = ref({ show: false, message: '', type: 'success' });
+        const showToast = (message, type = 'success') => {
+          toast.value = { show: true, message, type };
+          setTimeout(() => { toast.value.show = false; }, 3500);
+        };
+
+        // Static Lists
+        const unitOptions = [
+          'SKPP', 'DAPKK', 'SKMP', 'SKTAN', 'DSPK2AN',
+          'STIA JKT', 'STIA BDG', 'STIA MKS',
+          'STIA JKT, STIA MKS, STIA BDG', 'SKMK'
+        ];
+
+        const clusterOptions = [
+          'Prioritas Presiden',
+          'Tata Kelola & Manajemen ASN',
+          'Pelayanan Publik',
+          'Digitalisasi',
+          'Lainnya'
+        ];
+
+        const months2026 = [
+          'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+          'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        ];
+
+        // Chart References
+        let clusterChartInstance = null;
+        let mediaChartInstance = null;
+        let unitChartInstance = null;
+
+        // Status Evaluator Helper
+        const determineStatusClient = (item) => {
+          const ket = (item.keterangan || "").toLowerCase();
+          if (ket.includes("selesai") && !ket.includes("belum selesai")) return "Selesai Publikasi";
+          if (ket.includes("review") || ket.includes("deputi")) return "Review Policy Brief";
+          if (ket.includes("instrumen")) return "Penyusunan Instrumen";
+          if (ket.includes("pengumpulan") || ket.includes("responden") || ket.includes("penyebaran")) return "Pengumpulan Data";
+          if (ket.includes("pengolahan")) return "Pengolahan Data";
+          if (ket.includes("persiapan")) return "Tahap Persiapan";
+          if (ket.includes("policy brief") || ket.includes("policy paper") || ket.includes("laporan") || ket.includes("pb")) return "Penyusunan PB/Laporan";
+          if (ket.includes("belum selesai") || ket.length > 5) return "Dalam Proses";
+          const hasLinks = item.web_lan || item.web_unit || item.ig_lan || item.ig_unit || item.yt_lan || item.yt_unit || item.jurnal || item.media_online;
+          if (hasLinks) return "Selesai Publikasi";
+          return "Belum Dimulai";
+        };
+
+        const sanitizeSurveyData = (dataList) => {
+          return dataList.map(s => {
+            if (!s.status || s.status === 'Belum Dimulai') {
+              s.status = determineStatusClient(s);
+            }
+            return s;
+          });
+        };
+
+        // Initialize Data
+        const loadInitialData = () => {
+          const cached = localStorage.getItem('LAN_SURVEYS_CACHE');
+          if (cached) {
+            try {
+              const parsed = JSON.parse(cached);
+              allSurveys.value = sanitizeSurveyData(parsed);
+            } catch (e) {
+              allSurveys.value = sanitizeSurveyData(window.INITIAL_SURVEY_DATA || []);
+            }
+          } else if (window.INITIAL_SURVEY_DATA) {
+            allSurveys.value = sanitizeSurveyData(window.INITIAL_SURVEY_DATA);
+          }
+        };
+
+        const resetToInitialData = () => {
+          localStorage.removeItem('LAN_SURVEYS_CACHE');
+          allSurveys.value = sanitizeSurveyData(JSON.parse(JSON.stringify(window.INITIAL_SURVEY_DATA || [])));
+          showToast('Data berhasil di-reset ke data master bawaan!', 'success');
+          updateCharts();
+        };
+
+        const isSheetConnected = computed(() => {
+          return scriptUrl.value && scriptUrl.value.startsWith('http');
+        });
+
+        // Filtered surveys based on selected unit
+        const filteredSurveys = computed(() => {
+          if (selectedUnit.value === 'SEMUA') {
+            return allSurveys.value;
+          }
+          return allSurveys.value.filter(s => s.unit && s.unit.includes(selectedUnit.value));
+        });
+
+        // Filtered for Table / Cards
+        const tableFilteredSurveys = computed(() => {
+          return filteredSurveys.value.filter(item => {
+            const matchSearch = !searchQuery.value || 
+              (item.judul && item.judul.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
+              (item.keterangan && item.keterangan.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
+              (item.unit && item.unit.toLowerCase().includes(searchQuery.value.toLowerCase()));
+            
+            const matchCluster = !filterCluster.value || item.cluster1 === filterCluster.value;
+            const matchStatus = !filterStatus.value || item.status === filterStatus.value;
+            const matchYear = !filterYear.value || String(item.tahun) === filterYear.value;
+
+            return matchSearch && matchCluster && matchStatus && matchYear;
+          });
+        });
+
+        // Metric Statistics
+        const stats = computed(() => {
+          const list = filteredSurveys.value;
+          const total = list.length;
+          const completed = list.filter(s => s.status === 'Selesai Publikasi').length;
+          const inProgress = list.filter(s => s.status && s.status !== 'Selesai Publikasi' && s.status !== 'Belum Dimulai').length;
+          const notStarted = list.filter(s => !s.status || s.status === 'Belum Dimulai').length;
+
+          const year2026 = list.filter(s => String(s.tahun) === '2026').length;
+          const year2025 = list.filter(s => String(s.tahun) === '2025').length;
+
+          return {
+            total,
+            completed,
+            inProgress,
+            notStarted,
+            year2026,
+            year2025,
+            completedPercent: total > 0 ? Math.round((completed / total) * 100) : 0
+          };
+        });
+
+        const getUnitCount = (unit) => {
+          return allSurveys.value.filter(s => s.unit && s.unit.includes(unit)).length;
+        };
+
+        const getSurveysByMonth = (monthName) => {
+          return filteredSurveys.value.filter(s => {
+            return s.jadwal && s.jadwal.toLowerCase().includes(monthName.toLowerCase());
+          });
+        };
+
+        // Status Badge Styling Helper
+        const getStatusBadgeClass = (status) => {
+          if (!status) return 'bg-slate-100 text-slate-600 border-slate-200';
+          const s = status.toLowerCase();
+          if (s.includes('selesai publikasi') || s === 'selesai') {
+            return 'bg-emerald-50 text-emerald-700 border-emerald-300';
+          }
+          if (s.includes('review')) {
+            return 'bg-purple-50 text-purple-700 border-purple-300';
+          }
+          if (s.includes('instrumen') || s.includes('persiapan')) {
+            return 'bg-amber-50 text-amber-700 border-amber-300';
+          }
+          if (s.includes('pengumpulan') || s.includes('pengolahan')) {
+            return 'bg-sky-50 text-sky-700 border-sky-300';
+          }
+          if (s.includes('proses') || s.includes('laporan') || s.includes('dokumen')) {
+            return 'bg-blue-50 text-blue-700 border-blue-300';
+          }
+          return 'bg-slate-100 text-slate-500 border-slate-200';
+        };
+
+        // Unit Badge Styling Helper
+        const getUnitBadgeClass = (unit) => {
+          if (!unit) return 'bg-slate-100 text-slate-600';
+          if (unit.includes('SKPP')) return 'bg-indigo-100 text-indigo-800';
+          if (unit.includes('DAPKK')) return 'bg-amber-100 text-amber-800';
+          if (unit.includes('SKMP')) return 'bg-emerald-100 text-emerald-800';
+          if (unit.includes('SKTAN')) return 'bg-purple-100 text-purple-800';
+          if (unit.includes('DSPK2AN')) return 'bg-rose-100 text-rose-800';
+          if (unit.includes('STIA')) return 'bg-cyan-100 text-cyan-800';
+          if (unit.includes('SKMK')) return 'bg-teal-100 text-teal-800';
+          return 'bg-blue-100 text-blue-800';
+        };
+
+        // Link Helpers
+        const hasLink = (val) => {
+          return val && String(val).trim().length > 0;
+        };
+
+        const getCleanLink = (val) => {
+          if (!val) return '#';
+          const str = String(val).trim();
+          if (str.startsWith('http://') || str.startsWith('https://')) {
+            return str.split('\n')[0].trim();
+          }
+          return '#';
+        };
+
+        // Open & Close Modals
+        const openEditModal = (item) => {
+          activeEditItem.value = JSON.parse(JSON.stringify(item));
+          isEditModalOpen.value = true;
+          nextTick(() => { lucide.createIcons(); });
+        };
+
+        const closeEditModal = () => {
+          isEditModalOpen.value = false;
+        };
+
+        const openAddModal = () => {
+          newItem.value = {
+            unit: selectedUnit.value !== 'SEMUA' ? selectedUnit.value : 'SKPP',
+            judul: '',
+            cluster1: 'Prioritas Presiden',
+            jadwal: 'Agustus (1)',
+            tahun: '2026',
+            jenis: 'Policy Brief',
+            keterangan: 'Penyusunan instrumen baru',
+            status: 'Penyusunan Instrumen'
+          };
+          isAddModalOpen.value = true;
+          nextTick(() => { lucide.createIcons(); });
+        };
+
+        const openSettingsModal = () => {
+          scriptUrlInput.value = scriptUrl.value;
+          connectionTestResult.value = null;
+          isSettingsModalOpen.value = true;
+          nextTick(() => { lucide.createIcons(); });
+        };
+
+        // Save Survey Update (Local + Google Apps Script sync)
+        const saveSurveyUpdate = async () => {
+          isSaving.value = true;
+          const idx = allSurveys.value.findIndex(s => String(s.no) === String(activeEditItem.value.no));
+          
+          if (idx !== -1) {
+            allSurveys.value[idx] = { ...activeEditItem.value };
+            localStorage.setItem('LAN_SURVEYS_CACHE', JSON.stringify(allSurveys.value));
+          }
+
+          // If Apps Script URL is configured, sync via POST
+          if (isSheetConnected.value) {
+            try {
+              await fetch(scriptUrl.value, {
+                method: 'POST',
+                mode: 'no-cors', // Bypass Google Apps Script redirect CORS
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'update',
+                  data: activeEditItem.value
+                })
+              });
+              showToast('Perubahan berhasil disimpan & disinkronkan ke Google Sheet!', 'success');
+            } catch (err) {
+              console.error('Error syncing to sheet:', err);
+              showToast('Tersimpan di lokal, gagal mengirim ke Google Sheet.', 'error');
+            }
+          } else {
+            showToast('Perubahan tersimpan di memori dashboard lokal.', 'success');
+          }
+
+          isSaving.value = false;
+          closeEditModal();
+          updateCharts();
+        };
+
+        // Save New Survey
+        const saveNewSurvey = async () => {
+          if (!newItem.value.judul) {
+            alert('Mohon isi judul survei terlebih dahulu.');
+            return;
+          }
+          isSaving.value = true;
+          const newNo = allSurveys.value.length > 0 ? Math.max(...allSurveys.value.map(s => Number(s.no) || 0)) + 1 : 1;
+          const created = {
+            ...newItem.value,
+            no: newNo,
+            web_lan: '', web_unit: '', ig_lan: '', ig_unit: '',
+            yt_lan: '', yt_unit: '', media_online: '', jurnal: ''
+          };
+
+          allSurveys.value.push(created);
+          localStorage.setItem('LAN_SURVEYS_CACHE', JSON.stringify(allSurveys.value));
+
+          if (isSheetConnected.value) {
+            try {
+              await fetch(scriptUrl.value, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'add',
+                  data: created
+                })
+              });
+              showToast('Agenda survei baru berhasil ditambahkan ke Google Sheet!', 'success');
+            } catch (err) {
+              showToast('Agenda tersimpan di lokal!', 'success');
+            }
+          } else {
+            showToast('Agenda baru tersimpan di dashboard lokal!', 'success');
+          }
+
+          isSaving.value = false;
+          isAddModalOpen.value = false;
+          updateCharts();
+        };
+
+        // Fetch Data from Google Sheets
+        const fetchDataFromSheet = async () => {
+          if (!isSheetConnected.value) {
+            showToast('URL Google Apps Script belum dikonfigurasi.', 'error');
+            openSettingsModal();
+            return;
+          }
+
+          isSyncing.value = true;
+          try {
+            const resp = await fetch(scriptUrl.value);
+            const json = await resp.json();
+            if (json && json.status === 'success' && Array.isArray(json.data)) {
+              const cleaned = sanitizeSurveyData(json.data);
+              allSurveys.value = cleaned;
+              localStorage.setItem('LAN_SURVEYS_CACHE', JSON.stringify(cleaned));
+              const sheetInfo = json.sheetName ? ` (Tab: ${json.sheetName})` : '';
+              showToast(`Berhasil memuat ${cleaned.length} data survei${sheetInfo}!`, 'success');
+              updateCharts();
+            } else {
+              throw new Error(json.message || 'Format respon tidak sesuai');
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal terhubung ke Google Sheets: ' + err.message, 'error');
+          } finally {
+            isSyncing.value = false;
+          }
+        };
+
+        // Save Script URL
+        const saveScriptUrl = () => {
+          scriptUrl.value = scriptUrlInput.value.trim();
+          localStorage.setItem('LAN_APPS_SCRIPT_URL', scriptUrl.value);
+          isSettingsModalOpen.value = false;
+          showToast('URL Google Apps Script berhasil disimpan!', 'success');
+          if (scriptUrl.value) {
+            fetchDataFromSheet();
+          }
+        };
+
+        // Test Script Connection
+        const testScriptConnection = async () => {
+          if (!scriptUrlInput.value) {
+            connectionTestResult.value = { success: false, message: 'URL tidak boleh kosong.' };
+            return;
+          }
+          isTestingConnection.value = true;
+          connectionTestResult.value = null;
+          try {
+            const resp = await fetch(scriptUrlInput.value);
+            const json = await resp.json();
+            if (json && json.status === 'success') {
+              connectionTestResult.value = { success: true, message: `✅ Berhasil! Terbaca ${json.data ? json.data.length : 0} baris data.` };
+            } else {
+              connectionTestResult.value = { success: false, message: 'Respon tidak valid.' };
+            }
+          } catch (err) {
+            connectionTestResult.value = { success: false, message: 'Gagal terhubung (Cek izin publik/CORS).' };
+          } finally {
+            isTestingConnection.value = false;
+          }
+        };
+
+        // Chart.js Visualizations
+        const renderCharts = () => {
+          const list = filteredSurveys.value;
+
+          // 1. Cluster Chart
+          const clusterCounts = {};
+          clusterOptions.forEach(c => { clusterCounts[c] = 0; });
+          list.forEach(s => {
+            const c = s.cluster1 || 'Lainnya';
+            clusterCounts[c] = (clusterCounts[c] || 0) + 1;
+          });
+
+          const ctxCluster = document.getElementById('clusterChart');
+          if (ctxCluster) {
+            if (clusterChartInstance) clusterChartInstance.destroy();
+            clusterChartInstance = new Chart(ctxCluster, {
+              type: 'doughnut',
+              data: {
+                labels: Object.keys(clusterCounts),
+                datasets: [{
+                  data: Object.values(clusterCounts),
+                  backgroundColor: ['#2563eb', '#0d9488', '#d97706', '#7c3aed', '#64748b'],
+                  borderWidth: 2,
+                  borderColor: '#ffffff'
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                },
+                cutout: '65%'
+              }
+            });
+          }
+
+          // 2. Media Coverage Chart
+          const mediaCounts = {
+            'Website LAN': list.filter(s => hasLink(s.web_lan)).length,
+            'Website Unit': list.filter(s => hasLink(s.web_unit)).length,
+            'Instagram LAN': list.filter(s => hasLink(s.ig_lan)).length,
+            'Instagram Unit': list.filter(s => hasLink(s.ig_unit)).length,
+            'YouTube LAN': list.filter(s => hasLink(s.yt_lan)).length,
+            'YouTube Unit': list.filter(s => hasLink(s.yt_unit)).length,
+            'Media Online': list.filter(s => hasLink(s.media_online)).length,
+            'Jurnal': list.filter(s => hasLink(s.jurnal)).length
+          };
+
+          const ctxMedia = document.getElementById('mediaChart');
+          if (ctxMedia) {
+            if (mediaChartInstance) mediaChartInstance.destroy();
+            mediaChartInstance = new Chart(ctxMedia, {
+              type: 'bar',
+              data: {
+                labels: Object.keys(mediaCounts),
+                datasets: [{
+                  label: 'Banyak Survei Terpublikasi',
+                  data: Object.values(mediaCounts),
+                  backgroundColor: '#3b82f6',
+                  borderRadius: 6
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                  x: { beginAtZero: true, ticks: { stepSize: 2, font: { size: 10 } } },
+                  y: { ticks: { font: { size: 10 } } }
+                },
+                plugins: {
+                  legend: { display: false }
+                }
+              }
+            });
+          }
+
+          // 3. Unit Progress Chart
+          const unitsToCompare = unitOptions.slice(0, 8);
+          const completedByUnit = [];
+          const progressByUnit = [];
+
+          unitsToCompare.forEach(u => {
+            const unitItems = allSurveys.value.filter(s => s.unit && s.unit.includes(u));
+            const comp = unitItems.filter(s => s.status === 'Selesai Publikasi').length;
+            const prog = unitItems.filter(s => s.status !== 'Selesai Publikasi').length;
+            completedByUnit.push(comp);
+            progressByUnit.push(prog);
+          });
+
+          const ctxUnit = document.getElementById('unitChart');
+          if (ctxUnit) {
+            if (unitChartInstance) unitChartInstance.destroy();
+            unitChartInstance = new Chart(ctxUnit, {
+              type: 'bar',
+              data: {
+                labels: unitsToCompare,
+                datasets: [
+                  {
+                    label: 'Selesai Publikasi',
+                    data: completedByUnit,
+                    backgroundColor: '#10b981',
+                    borderRadius: 4
+                  },
+                  {
+                    label: 'Dalam Proses / Terjadwal',
+                    data: progressByUnit,
+                    backgroundColor: '#e2e8f0',
+                    borderRadius: 4
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  x: { stacked: true, ticks: { font: { size: 10 } } },
+                  y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } }
+                },
+                plugins: {
+                  legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+                }
+              }
+            });
+          }
+        };
+
+        const updateCharts = () => {
+          nextTick(() => {
+            renderCharts();
+            lucide.createIcons();
+          });
+        };
+
+        watch([selectedUnit, currentTab], () => {
+          if (currentTab.value === 'analytics') {
+            updateCharts();
+          } else {
+            nextTick(() => { lucide.createIcons(); });
+          }
+        });
+
+        onMounted(() => {
+          loadInitialData();
+          nextTick(() => {
+            renderCharts();
+            lucide.createIcons();
+          });
+        });
+
+        return {
+          allSurveys,
+          currentTab,
+          selectedUnit,
+          searchQuery,
+          filterCluster,
+          filterStatus,
+          filterYear,
+          viewMode,
+          isEditModalOpen,
+          isAddModalOpen,
+          isSettingsModalOpen,
+          isSyncing,
+          isSaving,
+          isTestingConnection,
+          activeEditItem,
+          newItem,
+          scriptUrlInput,
+          connectionTestResult,
+          toast,
+          unitOptions,
+          clusterOptions,
+          months2026,
+          isSheetConnected,
+          filteredSurveys,
+          tableFilteredSurveys,
+          stats,
+          getUnitCount,
+          getSurveysByMonth,
+          getStatusBadgeClass,
+          getUnitBadgeClass,
+          hasLink,
+          getCleanLink,
+          openEditModal,
+          closeEditModal,
+          openAddModal,
+          openSettingsModal,
+          saveSurveyUpdate,
+          saveNewSurvey,
+          fetchDataFromSheet,
+          saveScriptUrl,
+          testScriptConnection,
+          resetToInitialData
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
