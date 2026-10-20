@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Monitoring & Analisis Survei LAN RI 2026</title>
   
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/logo-lan.png">
+  <link rel="apple-touch-icon" href="assets/logo-lan.png">
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -63,8 +67,8 @@
           
           <!-- Logo & Title -->
           <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center shadow-md text-lan-900 font-black text-xl">
-              LAN
+            <div class="w-10 h-10 rounded-lg bg-white p-1 flex items-center justify-center shadow-md border border-slate-200/40 overflow-hidden shrink-0">
+              <img src="assets/logo-lan.png" alt="Logo LAN RI" class="w-full h-full object-contain">
             </div>
             <div>
               <div class="flex items-center space-x-2">
@@ -936,8 +940,14 @@
 
     <!-- FOOTER -->
     <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
-        Dashboard Rekapitulasi & Analisis Publikasi Survei — Lembaga Administrasi Negara Republik Indonesia (LAN RI)
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+        <div class="flex items-center space-x-2">
+          <img src="assets/logo-lan.png" alt="Logo LAN RI" class="w-5 h-5 object-contain">
+          <span class="font-semibold text-slate-700">Lembaga Administrasi Negara Republik Indonesia (LAN RI)</span>
+        </div>
+        <div>
+          Dashboard Rekapitulasi & Analisis Publikasi Survei Strategis
+        </div>
       </div>
     </footer>
 
