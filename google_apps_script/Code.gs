@@ -58,21 +58,21 @@ function getColumnMapping(headerRow) {
     const colName = String(headerRow[c] || "").trim().toLowerCase();
     
     if (colName === "no" || colName === "no.") mapping.no = c;
-    else if (colName.includes("unit")) mapping.unit = c;
-    else if (colName.includes("judul")) mapping.judul = c;
-    else if (colName.includes("jenis")) mapping.jenis = c;
+    else if (colName === "unit" || colName === "unit kerja" || colName === "satuan kerja") mapping.unit = c;
+    else if (colName.includes("judul") || colName === "topik") mapping.judul = c;
+    else if (colName === "jenis" || colName.includes("luaran")) mapping.jenis = c;
     else if (colName.includes("jadwal")) mapping.jadwal = c;
-    else if (colName.includes("tahun")) mapping.tahun = c;
+    else if (colName === "tahun") mapping.tahun = c;
     else if (colName.includes("cluster 1") || colName.includes("klaster 1") || colName === "cluster") mapping.cluster1 = c;
     else if (colName.includes("cluster 2") || colName.includes("klaster 2")) mapping.cluster2 = c;
     else if (colName.includes("jurnal")) mapping.jurnal = c;
-    else if (colName.includes("media online")) mapping.media_online = c;
-    else if (colName.includes("website lan")) mapping.web_lan = c;
-    else if (colName.includes("website unit")) mapping.web_unit = c;
-    else if (colName.includes("instagram lan")) mapping.ig_lan = c;
-    else if (colName.includes("instagram unit")) mapping.ig_unit = c;
-    else if (colName.includes("youtube lan")) mapping.yt_lan = c;
-    else if (colName.includes("youtube unit")) mapping.yt_unit = c;
+    else if (colName.includes("media online") || colName === "media") mapping.media_online = c;
+    else if (colName.includes("website lan") || colName === "web lan") mapping.web_lan = c;
+    else if (colName.includes("website unit") || colName === "web unit") mapping.web_unit = c;
+    else if (colName.includes("instagram lan") || colName === "ig lan") mapping.ig_lan = c;
+    else if (colName.includes("instagram unit") || colName === "ig unit") mapping.ig_unit = c;
+    else if (colName.includes("youtube lan") || colName === "yt lan") mapping.yt_lan = c;
+    else if (colName.includes("youtube unit") || colName === "yt unit") mapping.yt_unit = c;
     else if (colName.includes("keterangan") || colName.includes("catatan")) mapping.keterangan = c;
     else if (colName.includes("status")) mapping.status = c;
   }

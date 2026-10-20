@@ -980,8 +980,9 @@
           status: 'Belum Dimulai'
         });
 
-        // Google Apps Script Connection
-        const scriptUrl = ref(localStorage.getItem('LAN_APPS_SCRIPT_URL') || '');
+        // Google Apps Script Connection (Default Live LAN RI API)
+        const DEFAULT_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQCEUQuVnxiLE6q4ZCBD1AV6lYfLgreflkXeWPvsUfmGpPCAOhvyI5UOYjaDGkKhj5YA/exec";
+        const scriptUrl = ref(localStorage.getItem('LAN_APPS_SCRIPT_URL') || DEFAULT_APPS_SCRIPT_URL);
         const scriptUrlInput = ref(scriptUrl.value);
         const connectionTestResult = ref(null);
 
@@ -1034,7 +1035,24 @@
         };
 
         const sanitizeSurveyData = (dataList) => {
+          const initialMap = {};
+          if (window.INITIAL_SURVEY_DATA) {
+            window.INITIAL_SURVEY_DATA.forEach(d => { initialMap[String(d.no)] = d; });
+          }
           return dataList.map(s => {
+            const noKey = String(s.no);
+            const init = initialMap[noKey];
+            
+            // If unit is blank, 'Link', or invalid, recover from initial
+            if ((!s.unit || s.unit.toLowerCase() === 'link' || s.unit.trim().length === 0) && init && init.unit) {
+              s.unit = init.unit;
+            }
+            if ((!s.judul || s.judul.trim().length === 0) && init && init.judul) {
+              s.judul = init.judul;
+            }
+            if (!s.cluster1 && init && init.cluster1) {
+              s.cluster1 = init.cluster1;
+            }
             if (!s.status || s.status === 'Belum Dimulai') {
               s.status = determineStatusClient(s);
             }
@@ -1497,6 +1515,10 @@
             renderCharts();
             lucide.createIcons();
           });
+          // Auto fetch latest live data from Google Sheets
+          if (isSheetConnected.value) {
+            fetchDataFromSheet();
+          }
         });
 
         return {
